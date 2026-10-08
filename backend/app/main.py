@@ -5,6 +5,10 @@ from app.config import settings
 from app.database.seed_data import seed_database
 from app.routes.scheme_routes import router as scheme_router
 from app.routes.advisory_routes import router as advisory_router
+from app.routes.financial_routes import router as financial_router
+from app.routes.feasibility_routes import router as feasibility_router
+from app.routes.chat_routes import router as chat_router
+from app.routes.tts_routes import router as tts_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -29,6 +33,10 @@ app.add_middleware(
 )
 
 # Register API routes
+app.include_router(chat_router, prefix=settings.API_V1_PREFIX)
+app.include_router(tts_router, prefix=settings.API_V1_PREFIX)
+app.include_router(financial_router, prefix=settings.API_V1_PREFIX)
+app.include_router(feasibility_router, prefix=settings.API_V1_PREFIX)
 app.include_router(scheme_router, prefix=settings.API_V1_PREFIX)
 app.include_router(advisory_router, prefix=settings.API_V1_PREFIX)
 

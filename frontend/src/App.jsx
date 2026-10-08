@@ -5,6 +5,8 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
 import FormPage from './pages/FormPage';
+import InputPage from './pages/InputPage';
+import ResultPage from './pages/ResultPage';
 import SchemesPage from './pages/SchemesPage';
 import CalculatorPage from './pages/CalculatorPage';
 
@@ -17,7 +19,12 @@ function App() {
           <main className="flex-grow">
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/advisory" element={<FormPage />} />
+              <Route path="/home" element={<Home />} />
+              <Route path="/advisor" element={<InputPage />} />
+              <Route path="/input" element={<InputPage />} />
+              <Route path="/advisory" element={<InputPage />} />
+              <Route path="/form" element={<FormPage />} />
+              <Route path="/result" element={<ResultPage />} />
               <Route path="/schemes" element={<SchemesPage />} />
               <Route path="/calculator" element={<CalculatorPage />} />
             </Routes>

@@ -1,140 +1,112 @@
-# AI-Driven Hyper-Local Business Advisory & Financial Structuring Assistant
-### Smart India Hackathon 2026 — Problem Statement ID: 26091
-
-An AI-powered personal financial advisor and loan structuring assistant designed for rural micro-entrepreneurs. The platform bridges the digital and financial literacy gap by providing voice-enabled inputs, deterministic government scheme matching, exact financial loan calculations, and plain-language AI advisory explanations.
-
----
-
-## 🌟 Key Features
-
-- 🎙️ **Voice-Enabled Input**: Built-in speech-to-text using Web Speech API supporting regional languages for low-literacy users.
-- 🎯 **Scheme Matching Engine**: Rule-based matching system that pairs user profiles (business type, location, investment, experience) with relevant government concessional loan schemes (e.g., NSFDC, Micro Finance Schemes).
-- 🧮 **Deterministic Loan Calculator**: Python-powered accurate calculations for margin money, total loan amount, interest rates, and monthly EMI (no AI hallucinations on numbers).
-- 🤖 **AI Advisory Explanation**: Generates simple, personalized, human-readable explanations of loan terms and business advisories.
-- 📊 **Business Plan Summary**: Provides projected expense and income estimates tailored to the selected business type.
-- 🗺️ **District Directory**: Location-aware assistance for finding relevant district authorities and agencies.
+# SAMARTH AI — Rural Business Advisory & Financial Structuring Assistant
+> **Smart India Hackathon 2026 | Problem Statement ID: 26091**  
+> AI-Driven Hyper-Local Business Advisory and Concessional Financial Structuring for Rural Entrepreneurs (MoSJE & NSFDC Guidelines).
 
 ---
 
-## 🏗️ Project Architecture
+## 🌟 Overview
+
+**SAMARTH AI** is a dual-module financial and business advisory platform designed to empower rural micro-entrepreneurs across India. It bridges the gap between ground-level rural business ideas and formal government financial schemes without intermediaries.
+
+### Key Capabilities
+1. **Module 1 — Hyper-Local Feasibility & SWOT Analysis**:
+   - Automated 6-pillar feasibility report (Market reach radius, opportunity analysis, SWOT grid, local bottlenecks, competitor density, product pricing).
+   - Real-world Udyam MSME market calibration signals.
+
+2. **Module 2 — Upward Financial Structuring Engine**:
+   - Reverse-calculates total project cost and 90% concessional government loan from entrepreneur's 10% Available Margin Capital.
+   - Computes moratorium periods (3–9 months) and quarterly amortization schedules.
+
+3. **Multi-Turn Conversational AI ("Local Advisor")**:
+   - Powered by Google Gemini with regional bilingual prompt guidance.
+   - Live hands-free voice loop (Speech-to-Text & regional Text-to-Speech audio streaming).
+
+4. **Comprehensive Schemes Directory**:
+   - Over 2,700+ verified central and state government schemes (NSFDC, PMEGP, Mudra, Stand-Up India, Mahila Samriddhi).
+   - Real-time filters by state, sector, category, and investment budget.
+
+5. **Interactive EMI & Subsidy Calculator**:
+   - Real-time loan simulator with women applicant interest rebates (1% discount), custom moratorium sliders, and amortization table export.
+
+---
+
+## 🏗️ Architecture & Tech Stack
+
+- **Frontend**: React 19, Vite, TailwindCSS, Lucide React, React Router v7, HTML2Canvas / JSPDF
+- **Backend**: FastAPI (Python 3.10+), Pydantic v2, SQLite / SQLAlchemy, Uvicorn, HTTPX
+- **AI / Speech**: Google Gemini API, Regional TTS Audio Synthesizer, Web Speech API
 
 ```
-smart-india-hackethon/
 ├── backend/
 │   ├── app/
-│   │   ├── database/       # DB connection, seed data & scheme models
-│   │   ├── models/         # SQLAlchemy models (Scheme, User)
-│   │   ├── routes/         # FastAPI API endpoints (advisory, schemes)
-│   │   ├── schemas/        # Pydantic data validation schemas
-│   │   └── services/       # Scheme matching engine, Loan calculator & AI advisor
-│   ├── scripts/            # Dataset exploration & scheme import scripts
-│   ├── tests/              # Pytest backend tests
-│   ├── requirements.txt    # Python dependencies
-│   └── .env.example        # Environment variable template
+│   │   ├── database/        # Seed data and SQLite schema
+│   │   ├── models/          # SQLAlchemy ORM models
+│   │   ├── routes/          # API endpoints (chat, feasibility, financial, schemes, tts)
+│   │   ├── schemas/         # Pydantic v2 data models
+│   │   ├── services/        # Business logic (loan calculator, Gemini AI, TTS)
+│   │   ├── config.py        # Environment settings
+│   │   └── main.py          # FastAPI application entrypoint
+│   ├── tests/               # Pytest suite
+│   └── requirements.txt     # Python backend dependencies
 ├── frontend/
-│   ├── public/             # Static assets & SVG icons
 │   ├── src/
-│   │   ├── assets/         # App images & icons
-│   │   ├── components/     # UI components (Navbar, Footer, ResultCard, MicButton, etc.)
-│   │   ├── context/        # Multi-language Context API
-│   │   ├── pages/          # Home, FormPage, SchemesPage, CalculatorPage
-│   │   ├── services/       # API integration client
-│   │   └── utils/          # Web Speech API helpers
-│   ├── package.json        # Frontend dependencies & scripts
-│   └── vite.config.js      # Vite configuration
-├── docs/                   # PRD, Architecture, Rules, and UI/UX design documents
-└── README.md
+│   │   ├── components/      # UI cards, Chatbot, Modals, Navbar, Footer
+│   │   ├── context/         # Bilingual Language Context (Hindi/English)
+│   │   ├── pages/           # Home, InputPage, ResultPage, SchemesPage, CalculatorPage
+│   │   ├── services/        # Axios API client
+│   │   └── utils/           # Speech STT/TTS utilities
+│   ├── package.json
+│   ├── vite.config.js
+│   └── vercel.json          # SPA routing configuration for Vercel
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quickstart (Local Development)
 
-### Prerequisites
-
-- **Python**: 3.9+
-- **Node.js**: 18+ & npm
-
----
-
-### Backend Setup
-
-1. **Navigate to the backend directory:**
-   ```bash
-   cd backend
-   ```
-
-2. **Create and activate a virtual environment:**
-   ```bash
-   # Windows
-   python -m venv venv
-   .\venv\Scripts\activate
-
-   # Linux / macOS
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Set up environment variables:**
-   Copy `.env.example` to `.env` and fill in your API key:
-   ```bash
-   cp .env.example .env
-   ```
-
-5. **Run the Backend Server:**
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-   The backend API will be running at `http://localhost:8000`. API docs are available at `http://localhost:8000/docs`.
-
----
-
-### Frontend Setup
-
-1. **Navigate to the frontend directory:**
-   ```bash
-   cd frontend
-   ```
-
-2. **Install node packages:**
-   ```bash
-   npm install
-   ```
-
-3. **Start the Development Server:**
-   ```bash
-   npm run dev
-   ```
-   The application will be running at `http://localhost:5173`.
-
----
-
-## 🧪 Running Tests
-
-### Backend Tests
-
-Run unit tests for loan calculation and scheme matching using pytest:
+### 1. Backend Setup
 ```bash
 cd backend
-pytest
+python -m venv .venv
+# On Windows:
+.venv\Scripts\activate
+# On Linux/macOS:
+source .venv/bin/activate
+
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --port 8000
 ```
+API Documentation will be live at: `http://localhost:8000/docs`
+
+### 2. Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Web application will be live at: `http://localhost:5173`
 
 ---
 
-## 📜 Documentation
+## ☁️ Deployment Guide
 
-- [PRD (Product Requirement Document)](docs/PRD.md)
-- [Architecture Document](docs/architecture.md)
-- [UI/UX Specifications](docs/ui-ux.md)
-- [Phases & Roadmap](docs/phases.doc.md)
+### Deploying Frontend on Vercel
+1. Import your GitHub repository into [Vercel](https://vercel.com).
+2. Set **Root Directory** to `frontend`.
+3. Set **Framework Preset** to `Vite`.
+4. Under **Environment Variables**, add:
+   - `VITE_API_URL`: Your deployed backend URL (e.g. `https://your-backend.onrender.com/api`)
+5. Click **Deploy**. Vercel will build and serve your SPA.
+
+### Deploying Backend (Render / Railway / Fly.io)
+1. In Render / Railway, create a new **Web Service** pointing to the repository.
+2. Set **Root Directory** to `backend`.
+3. Build Command: `pip install -r requirements.txt`
+4. Start Command: `uvicorn app.main:app --host 0.0.0.0 --port 10000`
+5. Set Environment Variables:
+   - `GEMINI_API_KEY`: Your Google Gemini API Key
 
 ---
 
-## 🤝 Contributor Guidelines
-
-Please refer to [`docs/rules.md`](docs/rules.md) for code styling and development guidelines.
+## 📄 License
+Open source under MIT License for Smart India Hackathon (SIH 2026).

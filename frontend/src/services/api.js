@@ -72,4 +72,67 @@ export const submitAdvisoryRequest = async (payload) => {
   return response.data;
 };
 
+/**
+ * Module 2: Financial Roadmap Generator API (/api/financial-plan)
+ * Calculates project cost upward from Available Margin Capital (10%).
+ */
+export const getFinancialPlan = async ({ available_margin_capital, location = '', business_category = '' }) => {
+  const response = await api.post('/financial-plan', {
+    available_margin_capital: parseFloat(available_margin_capital),
+    location,
+    business_category
+  });
+  return response.data;
+};
+
+/**
+ * Module 1: Hyper-Local Feasibility Report API (/api/feasibility-report)
+ * Generates 6 grounded feasibility sub-sections with SWOT grid.
+ */
+export const getFeasibilityReport = async ({ location, business_category, project_cost }) => {
+  const response = await api.post('/feasibility-report', {
+    location,
+    business_category,
+    project_cost: parseFloat(project_cost)
+  });
+  return response.data;
+};
+
+/**
+ * Gemini AI Chatbot Engine API (/api/chat)
+ * Multi-turn conversational AI advisor ("Local Advisor").
+ */
+export const sendChatMessage = async ({
+  message,
+  chat_history = [],
+  available_margin_capital = null,
+  location = null,
+  business_category = null,
+  language = 'Hindi'
+}) => {
+  const payload = {
+    message,
+    chat_history,
+    available_margin_capital: available_margin_capital ? parseFloat(available_margin_capital) : null,
+    location,
+    business_category,
+    language
+  };
+  const response = await api.post('/chat', payload);
+  return response.data;
+};
+
+/**
+ * Text-to-Speech Audio Stream API (/api/tts)
+ * Returns a playable audio Blob URL for any Indian regional language.
+ */
+export const fetchAudioTTS = async ({ text, language = 'English' }) => {
+  const response = await api.post(
+    '/tts',
+    { text, language },
+    { responseType: 'blob' }
+  );
+  return URL.createObjectURL(response.data);
+};
+
 export default api;

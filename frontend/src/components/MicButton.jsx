@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { Mic, MicOff, Loader2 } from 'lucide-react';
+import { Mic, Loader2 } from 'lucide-react';
 import { initSpeechRecognition } from '../utils/speechToText';
 import { useLanguage } from '../context/LanguageContext';
 
-const MicButton = ({ onTranscript, className = "" }) => {
+const MicButton = ({ onTranscript, className = "", size = "md" }) => {
   const { lang } = useLanguage();
   const [isListening, setIsListening] = useState(false);
-  const [errorMsg, setErrorMsg] = useState(null);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const startListening = () => {
-    setErrorMsg(null);
+    setShowTooltip(false);
     const recognition = initSpeechRecognition(
       (text) => {
         setIsListening(false);
@@ -17,8 +17,9 @@ const MicButton = ({ onTranscript, className = "" }) => {
       },
       (err) => {
         setIsListening(false);
-        setErrorMsg('Mic access failed or not supported.');
-        console.error('Speech recognition error:', err);
+        console.warn('Speech recognition fallback:', err);
+        setShowTooltip(true);
+        setTimeout(() => setShowTooltip(false), 4000);
       },
       () => {
         setIsListening(false);
@@ -32,39 +33,44 @@ const MicButton = ({ onTranscript, className = "" }) => {
         setIsListening(true);
       } catch (err) {
         setIsListening(false);
+        setShowTooltip(true);
+        setTimeout(() => setShowTooltip(false), 4000);
       }
+    } else {
+      setShowTooltip(true);
+      setTimeout(() => setShowTooltip(false), 4000);
     }
   };
 
+  const btnSizes = {
+    sm: "w-10 h-10 text-xs",
+    md: "w-12 h-12 text-sm",
+    lg: "w-14 h-14 text-base"
+  };
+
   return (
-    <div className={`inline-flex flex-col items-center ${className}`}>
+    <div className={`relative inline-flex flex-col items-center ${className}`}>
       <button
         type="button"
         onClick={startListening}
-        className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-md focus:outline-none focus:ring-4 focus:ring-orange-300 ${
+        className={`${btnSizes[size] || btnSizes.md} rounded-full flex items-center justify-center transition-all shadow-md focus:outline-none focus:ring-4 focus:ring-amber-300 ${
           isListening
-            ? 'bg-[#FF9933] text-black animate-mic-pulse scale-105'
-            : 'bg-[#0B3D91] hover:bg-[#072a66] text-white'
+            ? 'bg-amber-500 text-black animate-pulse scale-105'
+            : 'bg-emerald-700 hover:bg-emerald-800 text-white'
         }`}
-        title={lang === 'hi' ? 'बोलकर फॉर्म भरें' : 'Speak to fill details'}
+        title={lang === 'hi' ? 'बोलकर संदेश दर्ज करें' : 'Speak your input'}
       >
         {isListening ? (
-          <Loader2 className="w-6 h-6 animate-spin text-black" />
+          <Loader2 className="w-5 h-5 animate-spin text-black" />
         ) : (
-          <Mic className="w-6 h-6 text-[#FF9933]" />
+          <Mic className="w-5 h-5 text-amber-300" />
         )}
       </button>
 
-      <span className="text-xs font-semibold mt-1.5 text-slate-700">
-        {isListening
-          ? (lang === 'hi' ? 'सुन रहे हैं...' : 'Listening...')
-          : (lang === 'hi' ? 'बोलकर भरें' : 'Voice Input')}
-      </span>
-
-      {errorMsg && (
-        <span className="text-[11px] text-red-600 mt-1 max-w-[160px] text-center">
-          {errorMsg}
-        </span>
+      {showTooltip && (
+        <div className="absolute bottom-full mb-2 w-48 bg-slate-800 text-white text-[11px] px-3 py-1.5 rounded-lg shadow-xl text-center z-30 font-medium">
+          Mic blocked or unsupported. Please type text directly.
+        </div>
       )}
     </div>
   );

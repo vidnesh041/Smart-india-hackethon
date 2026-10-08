@@ -25,6 +25,7 @@ const Home = () => {
       id: 'dairy',
       name: 'डेयरी व पशुपालन',
       nameEn: 'Dairy & Animal Husbandry',
+      targetCategory: 'Dairy & Livestock Farming',
       icon: Milk,
       range: '₹50,000 - ₹15,00,000',
       scheme: 'Micro Finance / Term Loan',
@@ -34,6 +35,7 @@ const Home = () => {
       id: 'grocery',
       name: 'किराना व रिटेल दुकान',
       nameEn: 'Grocery & Retail Store',
+      targetCategory: 'Retail & Grocery Shop',
       icon: Store,
       range: '₹50,000 - ₹5,00,000',
       scheme: 'Laghu Vyavasay Yojana',
@@ -43,6 +45,7 @@ const Home = () => {
       id: 'tailoring',
       name: 'सिलाई व बुटीक (महिला विशेष)',
       nameEn: 'Tailoring & Boutique',
+      targetCategory: 'Textiles, Garments & Tailoring',
       icon: Scissors,
       range: '₹20,000 - ₹1,40,000',
       scheme: 'Mahila Samriddhi Yojana (4% Rate)',
@@ -52,6 +55,7 @@ const Home = () => {
       id: 'transport',
       name: 'ई-रिक्शा व ट्रांसपोर्ट',
       nameEn: 'E-Rickshaw & Transport',
+      targetCategory: 'E-Rickshaw & Commercial Transport',
       icon: Truck,
       range: '₹1,00,000 - ₹10,00,000',
       scheme: 'Green Business / Term Loan',
@@ -61,6 +65,7 @@ const Home = () => {
       id: 'green',
       name: 'सोलर व हरित उद्यम',
       nameEn: 'Solar & Green Ventures',
+      targetCategory: 'Other Micro Business',
       icon: SunMedium,
       range: '₹1,00,000 - ₹30,00,000',
       scheme: 'Green Business Scheme',
@@ -70,6 +75,7 @@ const Home = () => {
       id: 'agri',
       name: 'कृषि प्रसंस्करण व मिल',
       nameEn: 'Agri Processing & Flour Mill',
+      targetCategory: 'Agro Processing & Flour Mill',
       icon: Sprout,
       range: '₹5,00,000 - ₹25,00,000',
       scheme: 'Term Loan Tier 1 / Tier 2',
@@ -112,10 +118,10 @@ const Home = () => {
           {/* Primary CTA Buttons */}
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              to="/advisory"
+              to="/advisor"
               className="w-full sm:w-auto px-7 py-3.5 bg-[#0B3D91] hover:bg-[#082d6b] text-white font-bold rounded-md shadow-md flex items-center justify-center space-x-2 text-sm sm:text-base transition-all hover:scale-[1.02]"
             >
-              <span>{lang === 'hi' ? 'अपनी योजना व लोन स्ट्रक्चर चेक करें' : 'Check Loan Structure Now'}</span>
+              <span>{lang === 'hi' ? 'अपने आईडिया के साथ आगे बढ़ें' : 'Continue with your idea'}</span>
               <ArrowRight className="w-4 h-4 text-[#FF9933]" />
             </Link>
 
@@ -261,13 +267,18 @@ const Home = () => {
           {businessCategories.map((cat) => {
             const Icon = cat.icon;
             return (
-              <div key={cat.id} className={`p-4 rounded-lg border ${cat.color} space-y-2 hover:shadow-sm transition-all`}>
+              <Link
+                key={cat.id}
+                to="/advisor"
+                state={{ category: cat.targetCategory }}
+                className={`p-4 rounded-lg border ${cat.color} space-y-2 hover:shadow-md hover:scale-[1.01] transition-all block cursor-pointer group`}
+              >
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-md bg-white border border-slate-200 flex items-center justify-center text-[#0B3D91]">
+                  <div className="w-10 h-10 rounded-md bg-white border border-slate-200 flex items-center justify-center text-[#0B3D91] group-hover:bg-[#0B3D91] group-hover:text-white transition-colors">
                     <Icon className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm text-[#1A1A1A]">
+                    <h3 className="font-bold text-sm text-[#1A1A1A] group-hover:text-[#0B3D91] transition-colors">
                       {lang === 'hi' ? cat.name : cat.nameEn}
                     </h3>
                     <span className="text-[11px] text-slate-600 font-medium">
@@ -279,11 +290,12 @@ const Home = () => {
                   <span className="text-slate-500 text-[11px]">
                     {lang === 'hi' ? 'उपयुक्त योजना:' : 'Scheme:'}
                   </span>
-                  <span className="font-bold text-[#0B3D91] text-[11px]">
-                    {cat.scheme}
+                  <span className="font-bold text-[#0B3D91] text-[11px] flex items-center gap-1">
+                    <span>{cat.scheme}</span>
+                    <ArrowRight className="w-3 h-3 text-[#FF9933] group-hover:translate-x-0.5 transition-transform" />
                   </span>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>

@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Text, Boolean, DateTime, ForeignKey, func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, Integer, String, Float, Text, Boolean, DateTime, ForeignKey, JSON, func
 from app.database.db_connection import Base
 
 class Scheme(Base):
@@ -18,10 +17,11 @@ class Scheme(Base):
     # Financial terms (deterministic numbers)
     min_cost = Column(Float, default=10000.0)        # In INR
     max_cost = Column(Float, default=1000000.0)      # In INR
-    margin_percent = Column(Float, default=10.0)    # Entrepreneur's share (e.g. 10%)
-    govt_loan_percent = Column(Float, default=90.0) # Concessional loan share (e.g. 90%)
-    interest_rate = Column(Float, default=5.0)       # % per annum (e.g. 5.0%)
-    interest_rebate_women = Column(Float, default=1.0) # Rebate for women
+    max_loan_amount = Column(Float, nullable=True)   # Max Loan limit in INR (1.25L or 45L)
+    margin_percent = Column(Float, default=10.0)    # Entrepreneur's share (10%)
+    govt_loan_percent = Column(Float, default=90.0) # Concessional loan share (90%)
+    interest_rate = Column(Float, default=5.0)       # % per annum
+    interest_rebate_women = Column(Float, default=0.0) # Rebate for women
     repayment_years = Column(Integer, default=5)    # Tenure in years
     moratorium_months = Column(Integer, default=6)  # Moratorium months
     
@@ -51,8 +51,8 @@ class VerificationLog(Base):
     checked_at = Column(DateTime, default=func.now())
     ai_finding = Column(Text, nullable=True)
     match_status = Column(String(30), nullable=True) # 'matched', 'mismatch', 'unreachable'
-    old_values = Column(JSONB, nullable=True)
-    new_values = Column(JSONB, nullable=True)
+    old_values = Column(JSON, nullable=True)
+    new_values = Column(JSON, nullable=True)
     reviewed_by_human = Column(Boolean, default=False)
 
 class SchemeReport(Base):

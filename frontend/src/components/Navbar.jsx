@@ -47,7 +47,30 @@ const Navbar = () => {
         </Link>
 
         {/* Action Links & Language Toggle */}
-        <div className="flex items-center space-x-2 sm:space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-3">
+          <Link
+            to="/"
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              location.pathname === '/' || location.pathname === '/home'
+                ? 'bg-[#072a66] text-[#FF9933] border border-[#FF9933]'
+                : 'text-blue-100 hover:bg-[#072a66]'
+            }`}
+          >
+            <span>{lang === 'hi' || lang === 'Hindi' ? 'मुख्य पृष्ठ' : 'Home'}</span>
+          </Link>
+
+          <Link
+            to="/advisor"
+            className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-md text-sm font-bold transition-colors shadow-sm ${
+              location.pathname === '/advisor' || location.pathname === '/advisory' || location.pathname === '/input'
+                ? 'bg-[#FF9933] text-black'
+                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-amber-300" />
+            <span>{lang === 'hi' || lang === 'Hindi' ? 'लोकल एडवाइजर AI' : 'Local Advisor AI'}</span>
+          </Link>
+
           <Link
             to="/schemes"
             className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -58,7 +81,7 @@ const Navbar = () => {
           >
             <BookOpen className="w-4 h-4" />
             <span className="hidden sm:inline">
-              {lang === 'hi' ? 'योजनाएं' : 'Schemes'}
+              {lang === 'hi' || lang === 'Hindi' ? 'योजनाएं' : 'Schemes'}
             </span>
           </Link>
 
@@ -72,21 +95,7 @@ const Navbar = () => {
           >
             <Calculator className="w-4 h-4 text-[#FF9933]" />
             <span className="hidden md:inline">
-              {lang === 'hi' ? 'कैलकुलेटर' : 'Calculator'}
-            </span>
-          </Link>
-
-          <Link
-            to="/advisory"
-            className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-md text-sm font-semibold transition-colors shadow-sm ${
-              location.pathname === '/advisory'
-                ? 'bg-[#FF9933] text-black'
-                : 'bg-white text-[#0B3D91] hover:bg-slate-100'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>
-              {lang === 'hi' ? 'योजना जाने' : 'Find Scheme'}
+              {lang === 'hi' || lang === 'Hindi' ? 'कैलकुलेटर' : 'Calculator'}
             </span>
           </Link>
 
@@ -97,7 +106,7 @@ const Navbar = () => {
             title="Toggle Hindi / English"
           >
             <Globe className="w-4 h-4 text-[#FF9933]" />
-            <span className="font-semibold">{lang === 'hi' ? 'English' : 'हिंदी'}</span>
+            <span className="font-semibold">{lang === 'hi' || lang === 'Hindi' ? 'English' : 'हिंदी'}</span>
           </button>
         </div>
       </div>

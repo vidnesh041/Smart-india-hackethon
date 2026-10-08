@@ -3,10 +3,10 @@ import React, { createContext, useContext, useState } from 'react';
 const LanguageContext = createContext();
 
 export const LanguageProvider = ({ children }) => {
-  const [lang, setLang] = useState('hi'); // Default Hindi for rural target audience
+  const [lang, setLang] = useState('English'); // Default English as requested
 
   const toggleLanguage = () => {
-    setLang((prev) => (prev === 'hi' ? 'en' : 'hi'));
+    setLang((prev) => (prev === 'Hindi' || prev === 'hi' ? 'English' : 'Hindi'));
   };
 
   return (

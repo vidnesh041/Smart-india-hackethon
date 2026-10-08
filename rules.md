@@ -1,81 +1,47 @@
 # rules.md
 ## Project Rules, Standards, Constraints & Guidelines
-### AI-Driven Hyper-Local Business Advisory & Financial Structuring Assistant
+### Hyper-Local AI Business Advisory Assistant with Smart Scheme Calculator
 
 ---
 
 ## 1. What to Use
 
-- **Frontend:** React.js (functional components + hooks only, no class components), Tailwind CSS for all styling, Axios for all HTTP calls, React Router for navigation.
-- **Backend:** FastAPI with async route handlers wherever an external call (OpenAI API, DB query) is involved.
-- **Database:** PostgreSQL, accessed only through SQLAlchemy ORM models — no raw SQL strings unless absolutely necessary for a complex query, and even then, use SQLAlchemy Core, not string concatenation.
-- **Validation:** All incoming request bodies must be validated using Pydantic schemas before touching business logic.
-- **Environment Variables:** All secrets (API keys, DB URL) must be loaded via a `.env` file and `python-dotenv` / `pydantic-settings` — never hardcoded.
-- **Design Pattern:** Keep a clean separation — Routes (HTTP layer) → Services (business logic) → Models (data layer). Routes should contain minimal logic; they call service functions.
+- **Frontend:** React.js (functional components + hooks), Tailwind CSS, Axios, Web Speech API / Whisper for voice.
+- **Backend:** FastAPI with **async route handlers for both `/api/financial-plan` and `/api/feasibility-report`**, ideally triggered concurrently from the frontend (fire both requests at once, render each card as it resolves).
+- **Database:** PostgreSQL via SQLAlchemy ORM only.
+- **Validation:** Pydantic schemas for all incoming requests — validate `available_margin_capital` is a positive number before it ever reaches `loan_calculator.py`.
 
 ## 2. What to Avoid
 
-- **Do NOT** use the AI model (OpenAI) to perform any numeric calculation (loan amount, interest, EMI). This is a hard rule — calculations must come from `loan_calculator.py`, a deterministic Python module.
-- **Do NOT** hardcode scheme rules (interest rates, tier limits) inside the AI prompt or frontend code — they must live in the PostgreSQL database so they can be updated without a code change.
-- **Do NOT** use deprecated or unmaintained npm/pip packages.
-- **Do NOT** commit `.env` files or any API keys to version control.
-- **Do NOT** use inline styles in React — use Tailwind utility classes only, for consistency.
-- **Do NOT** use real user financial data anywhere in the hackathon build — demo/dummy data only.
+- **Do NOT let the AI/LLM perform, override, or "double-check" any Module 2 calculation** (Project Cost, Loan Amount, scheme selection, EMI schedule). This is the single most important rule in this project. Module 2 must have zero code path that calls the OpenAI client.
+- **Do NOT hardcode the two schemes' numbers (interest rate, tenure, moratorium, tier boundary of ₹1.40 lakh) in more than one place.** They live in the `loan_schemes` database table only. If a value needs to change, it changes in one place.
+- **Do NOT invert the calculation direction.** The user provides **Available Margin Capital** (the 10% they already have) — the system calculates **upward** to Project Cost and Loan Amount. Do not build a form asking for "total investment" or "total project cost" as the primary input; that is a different (incorrect) direction from what the problem statement specifies.
+- **Do NOT let Module 1's feasibility report present itself as verified fact.** It must always be labeled as AI-generated guidance.
+- **Do NOT block the user from seeing Module 2's results while waiting for Module 1.** They should load independently.
 
 ## 3. Libraries & Dependencies
 
-### Backend (`requirements.txt`)
-| Package | Purpose |
-|---|---|
-| fastapi | Web framework |
-| uvicorn | ASGI server |
-| sqlalchemy | ORM |
-| psycopg2-binary | PostgreSQL driver |
-| pydantic | Data validation |
-| pydantic-settings | Environment/config management |
-| python-dotenv | Load `.env` variables |
-| openai | OpenAI API client |
-
-### Frontend (`package.json`)
-| Package | Purpose |
-|---|---|
-| react, react-dom | Core framework |
-| react-router-dom | Routing |
-| axios | HTTP client |
-| tailwindcss | Styling |
-| lucide-react | Icons |
-
-**Version Locking:** Pin exact versions in `requirements.txt` (`==`) and use `package-lock.json` / lockfile for npm — do not allow floating versions for a hackathon build, to avoid last-minute breakage.
+Same as previously defined in `development.md` (FastAPI, SQLAlchemy, psycopg2-binary, pydantic, openai, python-dotenv on backend; react, axios, tailwindcss, lucide-react on frontend) — no changes required for this update, only the internal logic and endpoints change.
 
 ## 4. Error Handling
 
-- **Backend:** Every route must wrap external calls (DB, OpenAI API) in try/except blocks. Return structured error responses:
-  ```json
-  { "success": false, "error": "Human-readable message" }
-  ```
-- **User-Facing Messages:** Never expose raw stack traces or internal error details to the frontend. Use simple messages like *"Scheme nahi mili, dobara try karein"*.
-- **Graceful Fallback:** If the OpenAI API call fails or times out, the app must still return the calculated numbers (from `loan_calculator.py`) with a generic fallback explanation — the app should never fail completely just because the AI text generation failed.
-- **Frontend:** All Axios calls must have `.catch()` handling with a user-friendly toast/message, and a loading state shown during the request.
+- If `available_margin_capital` results in a Project Cost **greater than ₹50,00,000**, do not crash — return a clear structured response: `{"scheme_selected": null, "message": "Your project cost exceeds the scope of these two schemes. Please consult your nearest CSC/bank for larger financing options."}`
+- If Module 1 (feasibility report / LLM call) fails or times out, **Module 2's financial roadmap must still be returned successfully** — the two modules must fail independently, never together.
+- If grounding data (Udyam/Places API) is unavailable for a given location, Module 1 should still generate a qualitative report but must explicitly note: "Local business density data was unavailable for this area; this estimate is based on general category knowledge only."
 
 ## 5. Boundaries of AI
 
-- The AI (OpenAI API) is **only** permitted to:
-  - Generate natural-language explanations of already-calculated numbers.
-  - Generate a simple business plan narrative from structured inputs.
-- The AI is **not** permitted to:
-  - Perform or override any financial calculation.
-  - Decide which scheme a user is eligible for (this is rule-based, from the database).
-  - Access or modify the database directly.
-  - Be given real user financial/PII data (demo data only, per PRD constraints).
-- Every AI-generated response must be clearly treated as an **explanation**, not as financial advice with legal weight — a disclaimer should be shown in the UI (e.g., "This is an AI-generated guide, please verify with your bank/CSC before applying.").
+| Task | AI Allowed? |
+|---|---|
+| Calculating Project Cost, Loan Amount | ❌ Never — pure Python only |
+| Selecting which scheme (Micro Finance vs Term Loan) | ❌ Never — pure Python `if/else` on the fixed ₹1.40 lakh boundary |
+| Generating the EMI/repayment schedule numbers | ❌ Never — pure Python |
+| Writing the Market Reach, Opportunity Analysis, SWOT, Threats, Competitor Mapping summary, Pricing suggestion (Module 1) | ✅ Yes — this is explicitly the AI's job per the problem statement |
+| Explaining Module 2's numbers in plain/local language | ✅ Yes — explanation only, never recomputation |
 
 ## 6. General Rules
 
-- **Code Style & Formatting:** Use Prettier for frontend, Black + isort for backend Python. Set up basic linter configs (ESLint for React, flake8/ruff for Python).
-- **Naming Conventions:** `camelCase` for JS variables/functions, `PascalCase` for React components, `snake_case` for Python variables/functions and file names.
-- **Commit Message Guidelines:** Follow Conventional Commits (e.g., `feat: add loan calculator service`, `fix: correct EMI formula`).
-- **Security & Data Privacy:** Sanitize all user inputs; never log API keys; use HTTPS in production; keep OpenAI API key server-side only (never expose it to the frontend).
-- **Performance & Scalability:** Use async DB queries and async OpenAI calls where possible to avoid blocking the event loop.
-- **Documentation Standards:** Every service function must have a docstring explaining input, output, and purpose.
-- **Testing Rules:** At minimum, unit test `loan_calculator.py` (pure functions, easy to test) and `scheme_matcher.py` logic — these are the most critical and error-prone parts of the app.
-- **Project-Specific Rule:** Any change to scheme interest rates, tier limits, or margin percentages must be made in the database seed data, never in code logic.
+- **Naming:** `snake_case` for Python, `camelCase` for JS, `PascalCase` for React components.
+- **Every financial number shown in the UI must be traceable to a `loan_calculator.py` function** — if you can't point to the exact function that produced a number on screen, it's a bug.
+- **Testing:** Unit test `loan_calculator.py` with the exact worked example from the PRD (₹1,00,000 margin → ₹10,00,000 project cost → ₹9,00,000 loan → Term Loan Scheme selected) as the primary test case, plus boundary tests exactly at ₹1,40,000 project cost (should select Micro Finance) and ₹1,40,000.01 (should select Term Loan).
+- **Documentation:** Every function in `loan_calculator.py` must have a docstring explicitly stating it performs deterministic math with no AI involvement, to make the boundary obvious to future contributors (including AI coding agents).

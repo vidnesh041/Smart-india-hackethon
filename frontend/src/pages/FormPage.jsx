@@ -15,14 +15,9 @@ import {
   ArrowRight, 
   ArrowLeft, 
   CheckCircle2, 
-  IndianRupee, 
   Loader2, 
-  User, 
-  MapPin, 
   Briefcase,
-  HelpCircle,
-  AlertTriangle,
-  Landmark
+  AlertTriangle
 } from 'lucide-react';
 
 const FormPage = () => {
@@ -108,7 +103,7 @@ const FormPage = () => {
   };
 
   const handleSubmit = async (e) => {
-    e && e.preventDefault();
+    if (e) e.preventDefault();
     setError(null);
     setLoading(true);
 

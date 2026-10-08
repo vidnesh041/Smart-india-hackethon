@@ -1,10 +1,41 @@
 /**
- * Speech Utilities: Unified Speech-to-Text (STT) and Text-to-Speech (TTS)
- * Native Web Speech API integration with Hindi and English voice selection.
+ * Speech Utilities: Unified Multi-Engine Speech-to-Text (STT) and Text-to-Speech (TTS)
+ * Uses FastAPI Backend TTS Audio Stream (/api/tts) for 100% accurate Indian regional language audio,
+ * with Web Speech API fallback.
  */
 
+import { fetchAudioTTS } from '../services/api';
+
+const STT_LANG_MAP = {
+  Hindi: 'hi-IN',
+  English: 'en-IN',
+  Marathi: 'mr-IN',
+  Hinglish: 'hi-IN',
+  Bengali: 'bn-IN',
+  Tamil: 'ta-IN',
+  Telugu: 'te-IN',
+  Gujarati: 'gu-IN'
+};
+
+export const getLangCode = (langName) => STT_LANG_MAP[langName] || 'en-IN';
+
+let currentAudio = null;
+
+export const stopSpeaking = () => {
+  if (currentAudio) {
+    try {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    } catch (e) {}
+    currentAudio = null;
+  }
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
+};
+
 // Speech Recognition (Speech to Text)
-export const initSpeechRecognition = (onResult, onError, onEnd, lang = 'hi-IN') => {
+export const initSpeechRecognition = (onResult, onError, onEnd, langName = 'English') => {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
@@ -13,7 +44,7 @@ export const initSpeechRecognition = (onResult, onError, onEnd, lang = 'hi-IN') 
   }
 
   const recognition = new SpeechRecognition();
-  recognition.lang = lang;
+  recognition.lang = getLangCode(langName);
   recognition.continuous = false;
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
@@ -34,54 +65,65 @@ export const initSpeechRecognition = (onResult, onError, onEnd, lang = 'hi-IN') 
   return recognition;
 };
 
-// Text to Speech (Voice Readout)
-export const speakText = (text, lang = 'hi-IN', onStart, onEnd) => {
-  if (!('speechSynthesis' in window)) {
-    console.warn('Speech synthesis not supported in this browser.');
-    return false;
-  }
+// Multi-Language Regional Text to Speech (Voice Synthesizer via Backend TTS API)
+export const speakText = async (text, langName = 'English', onStart, onEnd) => {
+  stopSpeaking();
 
-  // Stop any ongoing speech first
-  window.speechSynthesis.cancel();
-
-  // Strip markdown or bullet formatting for clean speech
   const cleanText = text
     .replace(/[#*_`~[\]()]/g, '')
     .replace(/₹/g, ' रुपये ')
     .replace(/%/g, ' प्रतिशत ')
+    .replace(/•/g, '')
     .trim();
 
-  if (!cleanText) return false;
-
-  const utterance = new SpeechSynthesisUtterance(cleanText);
-  utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-IN';
-  utterance.rate = 0.92; // Slightly slower for better clarity
-  utterance.pitch = 1.0;
-
-  // Try to select an authentic Hindi/Indian voice if available
-  const voices = window.speechSynthesis.getVoices();
-  const matchingVoice = voices.find(v => 
-    (lang === 'hi' && (v.lang === 'hi-IN' || v.lang.includes('hi') || v.name.toLowerCase().includes('hindi') || v.name.toLowerCase().includes('kalpana') || v.name.toLowerCase().includes('heera'))) ||
-    (lang !== 'hi' && (v.lang === 'en-IN' || v.name.toLowerCase().includes('india') || v.name.toLowerCase().includes('ravi') || v.name.toLowerCase().includes('veena')))
-  );
-
-  if (matchingVoice) {
-    utterance.voice = matchingVoice;
+  if (!cleanText) {
+    onEnd && onEnd();
+    return false;
   }
 
-  if (onStart) utterance.onstart = onStart;
-  if (onEnd) utterance.onend = onEnd;
-  utterance.onerror = (e) => {
-    console.error('Speech synthesis error:', e);
-    if (onEnd) onEnd();
-  };
+  if (onStart) onStart();
 
-  window.speechSynthesis.speak(utterance);
-  return true;
+  try {
+    const audioUrl = await fetchAudioTTS({ text: cleanText, language: langName });
+    const audio = new Audio(audioUrl);
+    currentAudio = audio;
+
+    audio.onended = () => {
+      currentAudio = null;
+      if (onEnd) onEnd();
+    };
+
+    audio.onerror = (e) => {
+      console.warn('Backend Audio play error, falling back to Web Speech:', e);
+      fallbackWebSpeech(cleanText, langName, onEnd);
+    };
+
+    await audio.play();
+    return true;
+  } catch (err) {
+    console.warn('Backend TTS fetch error, falling back to Web Speech:', err);
+    fallbackWebSpeech(cleanText, langName, onEnd);
+    return false;
+  }
 };
 
-export const stopSpeaking = () => {
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
+const fallbackWebSpeech = (cleanText, langName, onEnd) => {
+  if (!('speechSynthesis' in window)) {
+    onEnd && onEnd();
+    return;
   }
+
+  const langCode = getLangCode(langName);
+  const utterance = new SpeechSynthesisUtterance(cleanText);
+  utterance.lang = langCode;
+  utterance.rate = 0.95;
+
+  const voices = window.speechSynthesis.getVoices();
+  const matchingVoice = voices.find(v => v.lang.startsWith(langCode.substring(0, 2)));
+  if (matchingVoice) utterance.voice = matchingVoice;
+
+  utterance.onend = () => onEnd && onEnd();
+  utterance.onerror = () => onEnd && onEnd();
+
+  window.speechSynthesis.speak(utterance);
 };
