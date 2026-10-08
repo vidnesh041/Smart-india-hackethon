@@ -2,7 +2,7 @@
 gemini_chatbot_service.py
 Gemini AI Chatbot Engine ("Local Advisor") for Rural Micro-Entrepreneurs.
 Converses with entrepreneurs, collects business ideas, calculates financial roadmaps,
-generates & explains SWOT analysis, and answers any follow-up questions.
+generates & explains SWOT analysis, and answers any follow-up or complex business questions.
 """
 
 import re
@@ -19,11 +19,11 @@ You are "Local Advisor", a warm, empathetic, highly knowledgeable AI Rural Busin
 
 Your Persona & Style:
 - Speak naturally, respectfully, and warmly like a personal human mentor (गुरूजी / मित्र / मार्गदर्शक).
-- Avoid robotic or formulaic greetings. Adapt dynamically to what the user says.
-- Converse strictly in the user's requested language (Hindi, English, Hinglish, Marathi, Gujarati, Bengali, Tamil, Telugu).
-- When discussing financial calculations (10% Margin Capital, 90% Govt Concessional Loan, Moratorium, Interest Rates) and SWOT Analysis, explain them in simple, conversational terms that anyone can easily understand.
-- Provide practical, actionable guidance on required documents, DIC application steps, local village haat marketing, and equipment procurement.
-- Keep responses concise, clear, and voice-friendly so they sound natural when spoken aloud in Hands-Free Voice Mode.
+- Avoid robotic checklists, bulleted validation tags, or repeating prompt instructions.
+- Provide direct, thoughtful, and complete answers to user questions. Never stop mid-sentence.
+- If a user asks about an unrealistic or massive venture (e.g. private jet, airline, luxury skyscraper in a rural district), give an honest, friendly, grounded reality check explaining practical local constraints (runways, ATC, high maintenance, lack of demand, ₹100Cr+ capital required) and gently guide them towards high-demand, high-profit viable rural/semi-rural businesses (e.g., transport logistics, agro-processing, cold chain, dairy).
+- When discussing financial calculations (10% Margin Capital, 90% Govt Concessional Loan, Moratorium, Interest Rates) and SWOT Analysis, explain them clearly and conversationally.
+- Provide practical guidance on required documents, DIC application steps, local market reach, and equipment.
 """
 
 async def process_chat_message(
@@ -101,60 +101,55 @@ async def _call_gemini_api(
     language: str = "Hindi"
 ) -> str:
     """
-    Call Google Gemini REST API (gemini-2.5-flash) with conversation history, grounding context & language enforcement.
+    Call Google Gemini REST API with conversation history, grounding context & language enforcement.
     """
     api_key = settings.GEMINI_API_KEY
     primary_model = settings.GEMINI_MODEL or "gemini-3.6-flash"
-    candidate_models = [primary_model, "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"]
+    candidate_models = [primary_model, "gemini-3.6-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-flash-latest"]
 
-    # Deduplicate preserving order
     models_to_try = list(dict.fromkeys(candidate_models))
 
-    # Language rule injection
-    lang_rule = f"\n\nCRITICAL LANGUAGE RULE: Respond STRICTLY and EXCLUSIVELY in {language}. All text, greetings, bullet points, SWOT analysis explanation, and loan details must be written 100% in {language}. Do not use any words or sentences from other languages."
+    # Language rule instruction
+    lang_rule = f"Please converse naturally and completely in {language} (use Hinglish if requested, or clean natural conversational phrasing). Do not output any meta checklists, debug validation tags, or bullet points about language verification. Answer the question directly and completely."
 
     # Context enrichment for Gemini
     context_note = ""
     if financial_plan and not financial_plan.get("out_of_scope"):
-        context_note += f"\n[SYSTEM CONTEXT: Module 2 calculated project cost ₹{financial_plan['project_cost']:,.2f}, Govt Loan ₹{financial_plan['loan_amount']:,.2f}, Scheme: {financial_plan['scheme_selected']}, Interest: {financial_plan['interest_rate']}%, Tenure: {financial_plan['tenure_years']}yrs, Moratorium: {financial_plan['moratorium_months']} months.]"
+        context_note += f"\n[FINANCIAL CONTEXT: Module 2 calculated project cost ₹{financial_plan['project_cost']:,.2f}, Govt Loan ₹{financial_plan['loan_amount']:,.2f}, Scheme: {financial_plan['scheme_selected']}, Interest: {financial_plan['interest_rate']}%, Tenure: {financial_plan['tenure_years']}yrs, Moratorium: {financial_plan['moratorium_months']} months.]"
     if swot_analysis:
-        context_note += f"\n[SYSTEM CONTEXT: SWOT Strengths={swot_analysis.get('strengths')}, Weaknesses={swot_analysis.get('weaknesses')}, Opportunities={swot_analysis.get('opportunities')}, Threats={swot_analysis.get('threats')}]"
+        context_note += f"\n[SWOT CONTEXT: Strengths={swot_analysis.get('strengths')}, Weaknesses={swot_analysis.get('weaknesses')}, Opportunities={swot_analysis.get('opportunities')}, Threats={swot_analysis.get('threats')}]"
 
     if not api_key:
         return _generate_fallback_chat_reply(user_message, financial_plan, swot_analysis, location, category, margin_capital, language)
 
     # Format messages for Gemini API
     contents = []
-    
-    # System instruction prepended as context
-    contents.append({
-        "role": "user",
-        "parts": [{"text": f"System Instructions: {SYSTEM_INSTRUCTION} {lang_rule} {context_note}"}]
-    })
-    contents.append({
-        "role": "model",
-        "parts": [{"text": f"Namaste! Main Local Advisor hun ({language} mode). Aapke business plan aur loan ki jankari me aapki madad karne ke liye taiyaar hun. Batayein aapka kya idea hai?"}]
-    })
 
-    # Include recent history
+    # Include recent clean history
     for msg in chat_history[-6:]:
         role = "user" if msg.get("role") in ["user", "human"] else "model"
         text = msg.get("content") or msg.get("text", "")
         if text:
-            contents.append({"role": role, "parts": [{"text": text}]})
+            # Clean past checklist artifacts if any
+            cleaned_text = re.sub(r'^\s*(\*|\-)\s*[A-Za-z\s\?]+:\s*(Yes|No)\.?\s*$', '', text, flags=re.MULTILINE).strip()
+            if cleaned_text:
+                contents.append({"role": role, "parts": [{"text": cleaned_text}]})
 
     # Current user message
     contents.append({"role": "user", "parts": [{"text": user_message}]})
 
     payload = {
+        "systemInstruction": {
+            "parts": [{"text": f"{SYSTEM_INSTRUCTION}\n{lang_rule}\n{context_note}"}]
+        },
         "contents": contents,
         "generationConfig": {
-            "temperature": 0.4,
-            "maxOutputTokens": 1000
+            "temperature": 0.5,
+            "maxOutputTokens": 2048
         }
     }
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
+    async with httpx.AsyncClient(timeout=25.0) as client:
         for model in models_to_try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
             try:
@@ -165,9 +160,14 @@ async def _call_gemini_api(
                     if candidates:
                         parts = candidates[0].get("content", {}).get("parts", [])
                         if parts:
-                            return parts[0].get("text", "").strip()
+                            raw_reply = parts[0].get("text", "").strip()
+                            # Strip any checklist artifacts
+                            cleaned = re.sub(r'^\s*(\*|\-)\s*[A-Za-z\s\?]+:\s*(Yes|No)\.?\s*\n?', '', raw_reply, flags=re.MULTILINE).strip()
+                            cleaned = re.sub(r'^\s*(\*|\-)\s*(Conc|Warm|Empathetic|Hinglish|Hindi|English|Language)[^\n]*\n?', '', cleaned, flags=re.MULTILINE).strip()
+                            if cleaned:
+                                return cleaned
                 else:
-                    print(f"Gemini model {model} returned status {response.status_code}: {response.text[:200]}")
+                    print(f"Gemini model {model} returned status {response.status_code}")
             except Exception as e:
                 print(f"Gemini API call to {model} failed: {e}")
 
@@ -180,19 +180,16 @@ def _extract_margin_amount(text: str) -> Optional[float]:
 
     clean_text = text.replace(',', '')
 
-    # Check for lakh patterns e.g. "1 lakh", "1.5 lakh", "1lakh", "2lakhs"
     lakh_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:lakh|lakhs|lac|lacs|लख|लाख)', clean_text, re.IGNORECASE)
     if lakh_match:
         val = float(lakh_match.group(1))
         return val * 100000.0
 
-    # Check for thousand / k patterns e.g. "50k", "50 thousand"
     k_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:k|thousand|हजार)', clean_text, re.IGNORECASE)
     if k_match:
         val = float(k_match.group(1))
         return val * 1000.0
 
-    # Raw numbers e.g. 100000, 50000
     raw_match = re.search(r'(?:₹|rs\.?|inr)?\s*(\d{4,8})', clean_text, re.IGNORECASE)
     if raw_match:
         return float(raw_match.group(1))
@@ -203,7 +200,7 @@ def _extract_margin_amount(text: str) -> Optional[float]:
 def _extract_location(text: str) -> Optional[str]:
     if not text:
         return None
-    loc_keywords = ["pune", "shirur", "nashik", "satara", "nagpur", "mumbai", "solapur", "kolhapur", "aurangabad", "latur", "thane", "district", "village", "block"]
+    loc_keywords = ["pune", "shirur", "nashik", "satara", "nagpur", "bhandara", "mumbai", "solapur", "kolhapur", "aurangabad", "latur", "thane", "varanasi", "district", "village", "block"]
     for kw in loc_keywords:
         if kw in text.lower():
             return kw.capitalize()
@@ -214,17 +211,17 @@ def _extract_category(text: str) -> Optional[str]:
     if not text:
         return None
     lower = text.lower()
-    if "dairy" in lower or "doodh" in lower or "cow" in lower or "buffalo" in lower:
+    if "dairy" in lower or "doodh" in lower or "cow" in lower or "buffalo" in lower or "पशुपालन" in lower:
         return "Dairy & Livestock Farming"
-    elif "retail" in lower or "shop" in lower or "kirana" in lower or "dukaan" in lower:
+    elif "retail" in lower or "shop" in lower or "kirana" in lower or "dukaan" in lower or "दुकान" in lower:
         return "Retail & Grocery Shop"
-    elif "tailor" in lower or "silai" in lower or "textile" in lower or "boutique" in lower:
+    elif "tailor" in lower or "silai" in lower or "textile" in lower or "boutique" in lower or "सिलाई" in lower:
         return "Textiles, Garments & Tailoring"
-    elif "repair" in lower or "mobile" in lower or "electrical" in lower:
+    elif "repair" in lower or "mobile" in lower or "electrical" in lower or "वर्कशॉप" in lower:
         return "Electrical & Mobile Repair Workshop"
-    elif "mill" in lower or "flour" in lower or "agro" in lower:
+    elif "mill" in lower or "flour" in lower or "agro" in lower or "आटा" in lower:
         return "Agro Processing & Flour Mill"
-    elif "rickshaw" in lower or "transport" in lower or "auto" in lower:
+    elif "rickshaw" in lower or "transport" in lower or "auto" in lower or "रिक्शा" in lower or "गाड़ी" in lower:
         return "E-Rickshaw & Commercial Transport"
     return None
 
@@ -239,13 +236,66 @@ def _generate_fallback_chat_reply(
     language: str = "Hindi"
 ) -> str:
     msg_lower = user_message.lower()
-    loc_str = location or "your local district"
-    cat_str = category or "micro-enterprise"
+    loc_str = location or "aapke jile"
+    cat_str = category or "vyavasay"
     lang_lower = (language or "hindi").lower()
+    is_hinglish = "hinglish" in lang_lower
 
-    # Document / Kagaz query
+    # 1. Check for luxury / mega / unrealistic business queries (e.g., private jet, airline, mega mall)
+    if any(w in msg_lower for w in ["jet", "private jet", "plane", "helicopter", "airport", "airline", "हवाई जहाज", "जेट"]):
+        if is_hinglish:
+            return (
+                f"Dost, aapka vision sach me bohot bada hai! Lekin ek sachha mentor hone ke naate, mujhe aapko zameen ki haqeeqat batana zaroori hai.\n\n"
+                f"✈️ **Private Jet Service {loc_str} me kyun viable nahi hai?**\n"
+                f"1. **Badi Lagat (Capital):** Ek chhota private jet bhi ₹50 se ₹150 Crore ka aata hai, jo kisi bhi MSME ya concessional loan scheme ki ₹50 Lakh limit se bohot bahar hai.\n"
+                f"2. **Infrastructure ki kami:** {loc_str} me commercial runway, ATC tower, hanger aur jet maintenance facility uplabdh nahi hai.\n"
+                f"3. **Local Demand:** Gramin v kasba kshetron me daily private jet hire karne wale customers ki sankhya na ke barabar hoti hai.\n\n"
+                f"💡 **Aapke liye Behtar Vikalp (High Profit Alternatives):**\n"
+                f"Agar aap transport aur logistics me aage badhna chahte hain, toh:\n"
+                f"• **Commercial Cargo / Mini-Truck Fleet** (90% Govt Loan up to ₹45 Lakh)\n"
+                f"• **Cold-Chain / Agri Transport Van**\n"
+                f"• **Travels & Taxi Fleet Service**\n\n"
+                f"Aapke paas kitna budget ya Margin Capital uplabdh hai? Main aapko uska roadmap banakar deta hun!"
+            )
+        elif "marathi" in lang_lower:
+            return (
+                f"मित्रा, तुमची कल्पना खूप मोठी आहे, पण एक मार्गदर्शक म्हणून वस्तुस्थिती सांगणे गरजेचे आहे.\n\n"
+                f"✈️ **{loc_str} मध्ये प्रायव्हेट जेट सेवा का शक्य नाही?**\n"
+                f"१. **प्रचंड खर्च:** एका जेटसाठी किमान ५० ते १०० कोटी लागतात, जे सरकारी एमएसएमई योजनांच्या मर्यादेबाहेर आहे.\n"
+                f"२. **पायाभूत सुविधांचा अभाव:** स्थानिक पातळीवर रनवे, एटीसी आणि मेंटेनन्स सुविधा उपलब्ध नाहीत.\n"
+                f"३. **स्थानिक मागणी:** अशा भागात नियमित जेट वापरणारे ग्राहक नसतात.\n\n"
+                f"💡 **पर्यायी फायदेशीर व्यवसाय:**\n"
+                f"• कृषी वाहतूक व मिनी-ट्रक सेवा (९०% शासकीय कर्ज)\n"
+                f"• टूर अँड ट्रॅव्हल्स किंवा टेम्पो सेवा\n\n"
+                f"तुमच्याकडे किती मार्जिन रक्कम उपलब्ध आहे ते सांगा, आपण योग्य योजना पाहूया!"
+            )
+        else:
+            return (
+                f"मित्र, आपका दृष्टिकोण बहुत बड़ा है, लेकिन एक मार्गदर्शक के रूप में ज़मीनी सच्चाई बताना मेरा कर्तव्य है।\n\n"
+                f"✈️ **{loc_str} में प्राइवेट जेट सेवा क्यों व्यावहारिक नहीं है?**\n"
+                f"1. **अत्यधिक लागत:** एक जेट की लागत ₹50 से ₹150 करोड़ होती है, जो 90% रियायती सरकारी ऋण सीमा (अधिकतम ₹50 लाख) से बहुत अधिक है।\n"
+                f"2. **इन्फ्रास्ट्रक्चर की कमी:** स्थानीय स्तर पर रनवे, एटीसी और मेंटेनेंस की सुविधा उपलब्ध नहीं है।\n"
+                f"3. **स्थानीय मांग:** ग्रामीण और छोटे शहरों में प्राइवेट जेट के नियमित ग्राहक नहीं होते।\n\n"
+                f"💡 **आपके लिए बेहतर और व्यावहारिक विकल्प:**\n"
+                f"• **कमर्शियल कार्गो / मिनी-ट्रक सेवा** (90% सरकारी ऋण उपलब्ध)\n"
+                f"• **एग्री कोल्ड-चेन ट्रांसपोर्ट वाहन**\n"
+                f"• **टूर एंड ट्रेवल्स फ्लीट**\n\n"
+                f"आपके पास कितनी मार्जिन राशि उपलब्ध है? बताएं, मैं उसका सही वित्तीय रोडमैप तैयार करूँगा।"
+            )
+
+    # 2. Document / Kagaz query
     if any(w in msg_lower for w in ["doc", "document", "kagaz", "praman", "paper", "कागज़", "दस्तावेज़"]):
-        if "marathi" in lang_lower:
+        if is_hinglish:
+            return (
+                "📄 **Loan Application ke liye Zaroori Documents:**\n\n"
+                "1. **Pehchan Praman (KYC):** Aadhaar Card, PAN Card, Voter ID\n"
+                "2. **Pata Praman (Address Proof):** Ration Card ya Bijli Bill\n"
+                "3. **Bank Passbook:** Pichhle 6 mahine ka bank statement\n"
+                "4. **Aay v Jaati Praman Patra:** Agar SC/ST/OBC/EWS concessional scheme apply kar rahe hain\n"
+                "5. **Project DPR / Quotation:** Machine ya raw material ka quotation\n\n"
+                "Kya aapko kisi specific document ya DPR banane me madad chahiye?"
+            )
+        elif "marathi" in lang_lower:
             return (
                 "📄 **कर्जासाठी आवश्यक कागदपत्रे (Required Documents):**\n\n"
                 "1. **ओळख पुरावा (KYC):** आधार कार्ड / मतदार ओळखपत्र / पॅन कार्ड\n"
@@ -276,9 +326,18 @@ def _generate_fallback_chat_reply(
                 "क्या आपको इनमें से किसी दस्तावेज़ को तैयार करने में सहायता चाहिए?"
             )
 
-    # Process / Application query
+    # 3. Application Process query
     if any(w in msg_lower for w in ["apply", "kaise", "process", "avadan", "aavedan", "आवेदन", "अर्ज"]):
-        if "marathi" in lang_lower:
+        if is_hinglish:
+            return (
+                "📝 **Loan Aavedan ki Step-by-Step Process:**\n\n"
+                "1. Apne nikat-tam **District Industries Centre (DIC)** ya Bank Branch me jayein.\n"
+                "2. Apni 10% Margin Capital ka praman (bank balance) dikhayein.\n"
+                "3. Micro Finance Scheme (₹1.40L tak) ya Term Loan Scheme (₹50L tak) ka aavedan form bharein.\n"
+                "4. DIC aur Bank viability check karke 90% concessional loan approve karega.\n"
+                "5. Isme 3 se 6 mahine ka moratorium milega jisme EMI nahi deni hoti."
+            )
+        elif "marathi" in lang_lower:
             return (
                 "📝 **कर्ज अर्जाची टप्प्याटप्प्याने प्रक्रिया:**\n\n"
                 "1. जवळच्या **जिल्हा उद्योग केंद्र (DIC)** किंवा बँक शाखेला भेट द्या.\n"
@@ -303,7 +362,7 @@ def _generate_fallback_chat_reply(
                 "4. बैंक परियोजना की व्यवहार्यता सत्यापित कर 90% ऋण स्वीकृत करेगा।"
             )
 
-    # Financial plan + SWOT explanation response
+    # 4. Financial plan + SWOT explanation response
     if financial_plan and not financial_plan.get("out_of_scope"):
         cost = financial_plan['project_cost']
         loan = financial_plan['loan_amount']
@@ -318,7 +377,22 @@ def _generate_fallback_chat_reply(
         o_list = swot_analysis.get('opportunities', [f"Unserved demand in 5-10 km radius around {loc_str}", "Institutional buyers"]) if swot_analysis else [f"5-10 km radius demand in {loc_str}"]
         t_list = swot_analysis.get('threats', ["Seasonal agricultural demand cycles", "Raw material price volatility"]) if swot_analysis else ["Seasonal demand cycles"]
 
-        if "english" in lang_lower:
+        if is_hinglish:
+            return (
+                f"Aapke available **₹{margin:,.2f}** Margin Capital ke aadhar par **{loc_str}** me **{cat_str}** ka complete Financial Roadmap & SWOT Analysis taiyaar hai:\n\n"
+                f"💰 **Financial Roadmap (Module 2):**\n"
+                f"• **Total Project Cost:** ₹{cost:,.2f}\n"
+                f"• **Govt Concessional Loan (90%):** ₹{loan:,.2f}\n"
+                f"• **Selected Scheme:** {scheme} ({rate}% p.a. Byaj, {tenure} Saal ki Avadhi)\n"
+                f"• **Moratorium Period:** {mora} Mahine (Is dauraan koi EMI nahi deni padegi!)\n\n"
+                f"📊 **SWOT Analysis Breakdown:**\n"
+                f"🟢 **Strengths (Taakat):** {', '.join(s_list)}\n"
+                f"🔴 **Weaknesses (Kamzoriyaan):** {', '.join(w_list)}\n"
+                f"🔵 **Opportunities (Avasar):** {', '.join(o_list)}\n"
+                f"🟠 **Threats (Jokhim):** {', '.join(t_list)}\n\n"
+                f"Aap aavedan process ya marketing ke baare me kuch bhi pooch sakte hain!"
+            )
+        elif "english" in lang_lower:
             return (
                 f"Based on your available margin capital of **₹{margin:,.2f}**, here is your complete Financial Roadmap & SWOT Analysis for **{cat_str}** in **{loc_str}**:\n\n"
                 f"💰 **Financial Roadmap (Module 2):**\n"
@@ -364,15 +438,15 @@ def _generate_fallback_chat_reply(
                 f"आप मुझसे ऋण आवेदन, आवश्यक दस्तावेज, या स्थानीय बाजार रणनीति के बारे में कोई भी प्रश्न पूछ सकते हैं!"
             )
 
-    # General greeting / prompt
-    if "english" in lang_lower:
+    # 5. General intelligent response
+    if is_hinglish:
         return (
-            "Hello! I am **Local Advisor** — your AI Rural Business Advisor. 🙏\n\n"
-            "I will help you structure your business idea, calculate your 90% Govt Loan eligibility from your 10% Margin Capital, and generate a complete SWOT analysis.\n\n"
-            "Please tell me:\n"
-            "1. What is your **Business Idea**? (e.g. Dairy, Retail Shop, Tailoring, Workshop)\n"
-            "2. What is your **Location** (Village / Block / District)?\n"
-            "3. How much **Margin Capital (10% Cash)** do you have? (e.g. ₹50,000 or ₹1,00,000)"
+            "Namaste! 🙏 Main **Local Advisor** hun — aapka AI Rural Business Mentor.\n\n"
+            "Main aapke business idea, viability, market SWOT analysis aur 90% Govt Loan schemes ko structure karne me poori madad karunga.\n\n"
+            "Kripya mujhe batayein:\n"
+            "1. Aapka **Business Idea** kya hai?\n"
+            "2. Aapki **Location / Jila** kaunsa hai?\n"
+            "3. Aapke paas lagbhag kitna **Margin Capital (10% Cash)** hai?"
         )
     elif "marathi" in lang_lower:
         return (
@@ -382,6 +456,15 @@ def _generate_fallback_chat_reply(
             "१. तुमचा **व्यवसाय कोणता** आहे? (उदा. डेअरी, किराणा दुकान, शिलाई, वर्कशॉप)\n"
             "२. तुमचे **स्थान (Location)** कोणते आहे?\n"
             "३. तुमच्याकडे किती **मार्जिन रक्कम (10% Cash)** उपलब्ध आहे? (उदा. ₹५०,००० किंवा ₹१,००,०००)"
+        )
+    elif "english" in lang_lower:
+        return (
+            "Hello! I am **Local Advisor** — your AI Rural Business Advisor. 🙏\n\n"
+            "I will help you structure your business idea, calculate your 90% Govt Loan eligibility from your 10% Margin Capital, and generate a complete SWOT analysis.\n\n"
+            "Please tell me:\n"
+            "1. What is your **Business Idea**? (e.g. Dairy, Retail Shop, Tailoring, Workshop)\n"
+            "2. What is your **Location** (Village / Block / District)?\n"
+            "3. How much **Margin Capital (10% Cash)** do you have? (e.g. ₹50,000 or ₹1,00,000)"
         )
     else:
         return (

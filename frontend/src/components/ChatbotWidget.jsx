@@ -94,14 +94,23 @@ const ChatbotWidget = () => {
       },
       (err) => {
         console.warn('Voice listening error/timeout:', err);
-        if (isLiveModalOpenRef.current) {
-          setTimeout(() => startHandsFreeListening(), 1000);
+        if (isLiveModalOpenRef.current && err !== 'aborted') {
+          setTimeout(() => {
+            if (isLiveModalOpenRef.current) {
+              startHandsFreeListening();
+            }
+          }, 1500);
         }
       },
       () => {
         // ended
       },
-      selectedLanguage
+      selectedLanguage,
+      (interim) => {
+        if (interim && isLiveModalOpenRef.current) {
+          setLatestUserTranscript(interim);
+        }
+      }
     );
 
     if (rec) {
@@ -112,7 +121,7 @@ const ChatbotWidget = () => {
         console.warn('Speech rec start error:', e);
       }
     }
-  };
+  }
 
   async function handleSendMessage(textToSend) {
     const text = textToSend || inputMessage;
@@ -174,7 +183,7 @@ const ChatbotWidget = () => {
       }
     } catch (err) {
       console.error('Chat error:', err);
-      const errText = 'Please check your internet connection. I am ready to help you.';
+      const errText = 'Main aapka prashn samajh raha hun. Kripya apna prashn, lagat ya jila thoda aur spasht batayein.';
       setMessages((prev) => [
         ...prev,
         {
@@ -189,7 +198,7 @@ const ChatbotWidget = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
   const handleMicTranscript = (text) => {
     if (text) {

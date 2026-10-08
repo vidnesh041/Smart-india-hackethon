@@ -1,7 +1,7 @@
 /**
  * Speech Utilities: Unified Multi-Engine Speech-to-Text (STT) and Text-to-Speech (TTS)
  * Uses FastAPI Backend TTS Audio Stream (/api/tts) for 100% accurate Indian regional language audio,
- * with Web Speech API fallback.
+ * with multi-sentence chunking and Web Speech API fallback.
  */
 
 import { fetchAudioTTS } from '../services/api';
@@ -17,7 +17,7 @@ const STT_LANG_MAP = {
   Gujarati: 'gu-IN'
 };
 
-export const getLangCode = (langName) => STT_LANG_MAP[langName] || 'en-IN';
+export const getLangCode = (langName) => STT_LANG_MAP[langName] || 'hi-IN';
 
 let currentAudio = null;
 
@@ -26,7 +26,7 @@ export const stopSpeaking = () => {
     try {
       currentAudio.pause();
       currentAudio.currentTime = 0;
-    } catch (e) {}
+    } catch {}
     currentAudio = null;
   }
   if ('speechSynthesis' in window) {
@@ -34,8 +34,13 @@ export const stopSpeaking = () => {
   }
 };
 
-// Speech Recognition (Speech to Text)
-export const initSpeechRecognition = (onResult, onError, onEnd, langName = 'English') => {
+/**
+ * Speech Recognition (Speech to Text) with Continuous Natural Listening and Silence Detection
+ * - continuous: true so it doesn't abruptly cut off while user is thinking
+ * - interimResults: true for instant live visual feedback
+ * - 2.2s silence debounce timer before deciding the sentence is finished
+ */
+export const initSpeechRecognition = (onResult, onError, onEnd, langName = 'Hindi', onInterim = null) => {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
@@ -45,20 +50,57 @@ export const initSpeechRecognition = (onResult, onError, onEnd, langName = 'Engl
 
   const recognition = new SpeechRecognition();
   recognition.lang = getLangCode(langName);
-  recognition.continuous = false;
-  recognition.interimResults = false;
+  recognition.continuous = true;
+  recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
+  let accumulatedTranscript = '';
+  let silenceTimer = null;
+  let hasTriggered = false;
+
   recognition.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
-    onResult && onResult(transcript);
+    let interim = '';
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      if (event.results[i].isFinal) {
+        accumulatedTranscript += ' ' + event.results[i][0].transcript;
+      } else {
+        interim += event.results[i][0].transcript;
+      }
+    }
+
+    const currentLiveText = (accumulatedTranscript + ' ' + interim).trim();
+    if (onInterim && currentLiveText) {
+      onInterim(currentLiveText);
+    }
+
+    // Reset silence timer on every spoken syllable/word
+    if (silenceTimer) clearTimeout(silenceTimer);
+
+    // Wait 2.2 seconds of natural silence after speaking before finalizing and submitting
+    silenceTimer = setTimeout(() => {
+      const fullText = (accumulatedTranscript + ' ' + interim).trim();
+      if (fullText && fullText.length >= 2 && !hasTriggered) {
+        hasTriggered = true;
+        try { recognition.stop(); } catch {}
+        onResult && onResult(fullText);
+      }
+    }, 2200);
   };
 
   recognition.onerror = (event) => {
-    onError && onError(event.error);
+    if (silenceTimer) clearTimeout(silenceTimer);
+    if (event.error !== 'no-speech' && event.error !== 'aborted') {
+      onError && onError(event.error);
+    }
   };
 
   recognition.onend = () => {
+    if (silenceTimer) clearTimeout(silenceTimer);
+    const fullText = accumulatedTranscript.trim();
+    if (fullText && fullText.length >= 2 && !hasTriggered) {
+      hasTriggered = true;
+      onResult && onResult(fullText);
+    }
     onEnd && onEnd();
   };
 
@@ -66,7 +108,7 @@ export const initSpeechRecognition = (onResult, onError, onEnd, langName = 'Engl
 };
 
 // Multi-Language Regional Text to Speech (Voice Synthesizer via Backend TTS API)
-export const speakText = async (text, langName = 'English', onStart, onEnd) => {
+export const speakText = async (text, langName = 'Hindi', onStart, onEnd) => {
   stopSpeaking();
 
   const cleanText = text
